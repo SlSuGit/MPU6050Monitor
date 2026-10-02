@@ -40,6 +40,7 @@ namespace MPU6050Monitor
         private readonly Label _lastReceivedText = new();
         private readonly AccelerationPlot _accelerationPlot = new();
         private readonly GyroscopePlot _gyroscopePlot = new();
+        private readonly OrientationView _orientationView = new();
         private readonly Mpu6050Transmission _transmission = new();
         private readonly System.Windows.Forms.Timer _displayTimer = new() { Interval = 50 };
         private readonly object _receiveLock = new();
@@ -321,6 +322,7 @@ namespace MPU6050Monitor
                         sensorFrame.GyroX, sensorFrame.GyroY, sensorFrame.GyroZ);
                     _accelerationPlot.AddSample(frame.Timestamp, accelXG, accelYG, accelZG);
                     _gyroscopePlot.AddSample(frame.Timestamp, gyroXDps, gyroYDps, gyroZDps);
+                    _orientationView.AddSample(frame.Timestamp, accelXG, accelYG, accelZG, gyroXDps, gyroYDps, gyroZDps);
                 }
                 else if (TryParseAccelerometerFrame(frame.Line, out var accelX, out var accelY, out var accelZ))
                 {
@@ -461,6 +463,7 @@ namespace MPU6050Monitor
             _lastReceivedText.Text = "Brak odebranych danych";
             _accelerationPlot.ClearSamples();
             _gyroscopePlot.ClearSamples();
+            _orientationView.Reset();
         }
 
         private void DisconnectPort()

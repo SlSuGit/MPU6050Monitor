@@ -448,7 +448,7 @@ namespace MPU6050Monitor
             var diagnosticsTab = new TabPage("Wizualizacja")
             {
                 BackColor = Color.White,
-                Padding = new Padding(16)
+                Padding = new Padding(8)
             };
 
             var heading = new Label
@@ -492,19 +492,13 @@ namespace MPU6050Monitor
             _gyroscopePlot.Dock = DockStyle.Fill;
             _gyroscopePlot.Margin = Padding.Empty;
 
-            // Trzecia zakładka nadal jest placeholderem do kolejnego widoku.
-            var diagnosticsPlaceholder = new Label
-            {
-                Text = "Miejsce na widok diagnostyczny i dodatkowe metryki.",
-                Dock = DockStyle.Fill,
-                ForeColor = MutedColor,
-                Font = new Font("Segoe UI", 9.5f),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
+            // Trzecia zakładka pokazuje orientację czujnika w 3D.
+            _orientationView.Dock = DockStyle.Fill;
+            _orientationView.Margin = Padding.Empty;
 
             plotTab.Controls.Add(_accelerationPlot);
             rawDataTab.Controls.Add(_gyroscopePlot);
-            diagnosticsTab.Controls.Add(diagnosticsPlaceholder);
+            diagnosticsTab.Controls.Add(_orientationView);
             tabs.TabPages.Add(plotTab);
             tabs.TabPages.Add(rawDataTab);
             tabs.TabPages.Add(diagnosticsTab);
