@@ -433,7 +433,7 @@ namespace MPU6050Monitor
 
             // Pierwsza zakładka przejmuje istniejący wykres, więc logika odświeżania danych
             // z Form1 może pozostać bez zmian.
-            var plotTab = new TabPage("Wykres AKcelerometr")
+            var plotTab = new TabPage(" Akcelerometr")
             {
                 BackColor = Color.White,
                 Padding = new Padding(8)
