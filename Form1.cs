@@ -22,6 +22,7 @@ namespace MPU6050Monitor
         private const double AccelerometerZBiasG = -0.178;
         private const double AccelerometerZScale = 1.0 / 1.018;
         private const int MaximumDisplayedFrames = 1500;
+        private const string TemperaturePlaceholder = "TEMP: — °C";
 
         private readonly ComboBox _portComboBox = new();
         private readonly ComboBox _baudComboBox = new();
@@ -38,6 +39,8 @@ namespace MPU6050Monitor
         private readonly Label _frameCountText = new();
         private readonly Label _latestFrameText = new();
         private readonly Label _lastReceivedText = new();
+        private readonly Label _temperatureText = new();
+        private readonly Button _exitButton = new();
         private readonly AccelerationPlot _accelerationPlot = new();
         private readonly GyroscopePlot _gyroscopePlot = new();
         private readonly OrientationView _orientationView = new();
@@ -310,12 +313,14 @@ namespace MPU6050Monitor
                 }
             }
 
-            var displayedFrames = new string[frames.Count];
+            double? latestTemperature = null;
+            // var displayedFrames = new string[frames.Count];
             for (var index = 0; index < frames.Count; index++)
             {
                 var frame = frames[index];
                 if (TryParseMpu6050Frame(frame.Line, out var sensorFrame))
                 {
+                    latestTemperature = sensorFrame.TemperatureCelsius;
                     var (accelXG, accelYG, accelZG) = ConvertAcceleration(
                         sensorFrame.AccelX, sensorFrame.AccelY, sensorFrame.AccelZ);
                     var (gyroXDps, gyroYDps, gyroZDps) = ConvertGyroscope(
@@ -330,24 +335,30 @@ namespace MPU6050Monitor
                     _accelerationPlot.AddSample(frame.Timestamp, accelXG, accelYG, accelZG);
                 }
 
-                var displayedFrame = FormatFrame(frame.Line, multiline: false);
-                displayedFrames[index] = $"{frame.Timestamp:HH:mm:ss.fff}  {displayedFrame}";
+                // var displayedFrame = FormatFrame(frame.Line, multiline: false);
+                // displayedFrames[index] = $"{frame.Timestamp:HH:mm:ss.fff}  {displayedFrame}";
             }
 
-            _receivedListBox.BeginUpdate();
-            try
-            {
-                _receivedListBox.Items.AddRange(displayedFrames);
-                while (_receivedListBox.Items.Count > MaximumDisplayedFrames)
-                {
-                    _receivedListBox.Items.RemoveAt(0);
-                }
+            // Lista odebranych ramek jest wyłączona.
+            // _receivedListBox.BeginUpdate();
+            // try
+            // {
+            //     _receivedListBox.Items.AddRange(displayedFrames);
+            //     while (_receivedListBox.Items.Count > MaximumDisplayedFrames)
+            //     {
+            //         _receivedListBox.Items.RemoveAt(0);
+            //     }
+            //
+            //     _receivedListBox.TopIndex = _receivedListBox.Items.Count - 1;
+            // }
+            // finally
+            // {
+            //     _receivedListBox.EndUpdate();
+            // }
 
-                _receivedListBox.TopIndex = _receivedListBox.Items.Count - 1;
-            }
-            finally
+            if (latestTemperature is { } temperature)
             {
-                _receivedListBox.EndUpdate();
+                _temperatureText.Text = $"TEMP: {temperature:F1} °C";
             }
 
             var latestFrame = frames[^1];
@@ -461,6 +472,7 @@ namespace MPU6050Monitor
             _frameCountText.Text = "0";
             _latestFrameText.Text = "—";
             _lastReceivedText.Text = "Brak odebranych danych";
+            _temperatureText.Text = TemperaturePlaceholder;
             _accelerationPlot.ClearSamples();
             _gyroscopePlot.ClearSamples();
             _orientationView.Reset();
@@ -480,6 +492,7 @@ namespace MPU6050Monitor
                 return;
             }
 
+            _temperatureText.Text = TemperaturePlaceholder;
             _rangeCommandPending = false;
             SetRangeControlsEnabled(false);
             _portComboBox.Enabled = true;

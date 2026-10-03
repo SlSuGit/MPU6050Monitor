@@ -89,10 +89,56 @@ namespace MPU6050Monitor
             // Po zmianie szerokości paska etykieta jest dosuwana do prawej krawędzi z odstępem 24 px.
             bar.Resize += (_, _) => appTag.Location = new Point(bar.ClientSize.Width - appTag.Width - 24, 20);
 
+            // Przycisk zamyka port (przez FormClosing) i kończy aplikację; obok temperatura z MPU6050.
+            _exitButton.Text = "Zakończ"; //zamyka port i program
+            _exitButton.Size = new Size(170, 34);
+            _exitButton.FlatStyle = FlatStyle.Flat;
+            _exitButton.FlatAppearance.BorderSize = 0;
+            _exitButton.BackColor = Color.FromArgb(171, 75, 64);
+            _exitButton.ForeColor = Color.White;
+            _exitButton.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            _exitButton.Cursor = Cursors.Hand;
+            _exitButton.Margin = Padding.Empty;
+            _exitButton.Click += (_, _) => Close();
+
+            _temperatureText.Text = TemperaturePlaceholder;
+            _temperatureText.AutoSize = false;
+            _temperatureText.Size = new Size(140, 34);
+            _temperatureText.ForeColor = Color.FromArgb(242, 246, 245);
+            _temperatureText.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            _temperatureText.TextAlign = ContentAlignment.MiddleLeft;
+            _temperatureText.Margin = new Padding(16, 0, 0, 0);
+
+            var exitGroup = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                WrapContents = false,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty
+            };
+            exitGroup.Controls.Add(_exitButton);
+            exitGroup.Controls.Add(_temperatureText);
+            // Kolumny boczne rezerwują miejsce na teksty statusu i etykietę; grupa jest centrowana między nimi.
+            var statusLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                BackColor = Color.Transparent
+            };
+            statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
+            statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            exitGroup.Anchor = AnchorStyles.None;
+            statusLayout.Controls.Add(exitGroup, 1, 0);
+
             bar.Controls.Add(_statusIndicator);
             bar.Controls.Add(_statusText);
             bar.Controls.Add(_statusDetail);
             bar.Controls.Add(appTag);
+            bar.Controls.Add(statusLayout);
             return bar;
         }
 
@@ -155,9 +201,12 @@ namespace MPU6050Monitor
             // W tym przypadku 20 px od góry wyrównuje go optycznie do pól formularza,
             // a 42 px z prawej daje większy odstęp przed przyciskiem głównym.
             // Click: po kliknięciu wywoływana jest metoda odświeżająca listę dostępnych portów COM.
+            // Środek przycisków pokrywa się ze środkiem list rozwijanych (te zaczynają się pod etykietą 24 px).
+            var buttonTop = 24 + (_portComboBox.PreferredHeight - 38) / 2;
             _refreshButton.Text = "Odśwież";
             ConfigureSecondaryButton(_refreshButton, 88);
-            _refreshButton.Margin = new Padding(20, 20, 42, 0);
+            _refreshButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _refreshButton.Margin = new Padding(0, buttonTop, 10, 0);
             _refreshButton.Click += (_, _) => RefreshPorts();
 
             // Konfiguracja głównego przycisku akcji odpowiedzialnego za otwieranie i zamykanie portu.
@@ -166,49 +215,42 @@ namespace MPU6050Monitor
             // Górny margines 20 px wyrównuje go do wspólnej linii z listami rozwijanymi.
             _connectButton.Text = "Otwórz port";
             ConfigurePrimaryButton(_connectButton, 142);
-            _connectButton.Margin = new Padding(0, 20, 0, 0);
+            _connectButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _connectButton.Margin = new Padding(0, buttonTop, 0, 0);
             _connectButton.Click += (_, _) => ToggleConnection();
 
             // Przycisk zatwierdzający zmianę zakresów pomiarowych.
             // Na starcie pozostaje wyłączony, bo nie ma jeszcze aktywnego połączenia z urządzeniem.
             _applyRangesButton.Text = "Zastosuj";
             ConfigureSecondaryButton(_applyRangesButton, 100);
-            _applyRangesButton.Margin = new Padding(20, 10, 0, 0);
+            _applyRangesButton.Height = 30;
+            _applyRangesButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _applyRangesButton.Margin = new Padding(0, 14, 10, 0);
             _applyRangesButton.Enabled = false;
             _applyRangesButton.Click += (_, _) => ApplySelectedRanges();
 
+            // Lista ramek jest wyłączona, więc przycisk czyszczenia (i zerowania yaw) jest tutaj.
+            _clearButton.Text = "Wyczyść";
+            ConfigureSecondaryButton(_clearButton, 82);
+            _clearButton.Height = 30;
+            _clearButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _clearButton.Margin = new Padding(0, 14, 0, 0);
+            _clearButton.Click += (_, _) => ClearReceivedFrames();
+
             // Pierwszy rząd kontrolek: port, prędkość, odświeżenie, połączenie.
             // FlowLayoutPanel sam wylicza pozycje dzieci na podstawie kolejności dodania i ich marginesów.
-            var fields = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                // Kontener ma wysokość zgodną z wyższymi polami wejściowymi.
-                Height = 74,
-                // Nie zawijamy do drugiej linii, bo cały rząd ma pozostać w jednym pasie.
-                WrapContents = false,
-                FlowDirection = FlowDirection.LeftToRight,
-                BackColor = Color.White,
-                Margin = Padding.Empty
-            };
-            // Kolejność dodania definiuje kolejność wyświetlania od lewej do prawej.
-            fields.Controls.Add(BuildField("Nr portu", _portComboBox, 176));
-            fields.Controls.Add(BuildField("Prędkość", _baudComboBox, 176));
-            fields.Controls.Add(_refreshButton);
-            fields.Controls.Add(_connectButton);
+            var fields = CreateControlRow();
+            fields.Controls.Add(BuildField("Nr portu", _portComboBox), 0, 0);
+            fields.Controls.Add(BuildField("Prędkość", _baudComboBox), 1, 0);
+            fields.Controls.Add(_refreshButton, 2, 0);
+            fields.Controls.Add(_connectButton, 3, 0);
 
             // Drugi rząd: ustawienia zakresów pracy czujników.
-            var rangeFields = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                Height = 42,
-                WrapContents = false,
-                FlowDirection = FlowDirection.LeftToRight,
-                BackColor = Color.White,
-                Margin = Padding.Empty
-            };
-            rangeFields.Controls.Add(BuildCompactField("Akcelerometr", _accelRangeComboBox, 142));
-            rangeFields.Controls.Add(BuildCompactField("Żyroskop", _gyroRangeComboBox, 142));
-            rangeFields.Controls.Add(_applyRangesButton);
+            var rangeFields = CreateControlRow();
+            rangeFields.Controls.Add(BuildCompactField("Akcelerometr", _accelRangeComboBox), 0, 0);
+            rangeFields.Controls.Add(BuildCompactField("Żyroskop", _gyroRangeComboBox), 1, 0);
+            rangeFields.Controls.Add(_applyRangesButton, 2, 0);
+            rangeFields.Controls.Add(_clearButton, 3, 0);
             // Zakresy są aktywowane dopiero po otwarciu portu i pobraniu aktualnej konfiguracji.
             SetRangeControlsEnabled(false);
 
@@ -220,31 +262,63 @@ namespace MPU6050Monitor
                 ColumnCount = 1,
                 RowCount = 2,
                 // Padding buduje odstęp od obramowania białego paska.
-                Padding = new Padding(24, 8, 24, 8),
+                Padding = new Padding(24, 8, 12, 8),
                 BackColor = Color.White
             };
             rows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            // Górny rząd jest wyższy, bo zawiera standardowe pola i przyciski o wysokości 38 px.
+            // Górny rząd zawiera pola i przyciski o wysokości 38 px pod etykietą.
             rows.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
             // Dolny rząd jest niższy, bo zawiera bardziej zwarte pola zakresów.
-            rows.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            rows.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
             rows.Controls.Add(fields, 0, 0);
             rows.Controls.Add(rangeFields, 0, 1);
-            bar.Controls.Add(rows);
+
+            // Lewa połowa okna: ustawienia, prawa połowa: ostatnia ramka z czasem.
+            var halves = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.White
+            };
+            halves.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            halves.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            halves.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            halves.Controls.Add(rows, 0, 0);
+            halves.Controls.Add(BuildLatestFramePanel(), 1, 0);
+            bar.Controls.Add(halves);
             return bar;
+        }
+
+        // Wiersz czterech kolumn procentowych, dzięki czemu pola skalują się z szerokością okna.
+        private static TableLayoutPanel CreateControlRow()
+        {
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 4,
+                RowCount = 1,
+                BackColor = Color.White,
+                Margin = Padding.Empty
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            return row;
         }
 
         // Buduje kompaktowe pole z etykietą nad listą rozwijaną.
         // Ta wersja jest używana dla zakresów czujników, gdzie pionowy układ jest niższy niż w głównych polach.
-        private Control BuildCompactField(string labelText, Control editor, int width)
+        private Control BuildCompactField(string labelText, Control editor)
         {
             var field = new TableLayoutPanel
             {
-                Width = width,
-                Height = 40,
+                Dock = DockStyle.Fill,
                 RowCount = 2,
                 ColumnCount = 1,
-                Margin = new Padding(0, 0, 14, 0),
+                Margin = new Padding(0, 0, 10, 0),
                 BackColor = Color.White
             };
             field.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -259,9 +333,10 @@ namespace MPU6050Monitor
                 TextAlign = ContentAlignment.MiddleLeft
             };
             // Pole edycyjne musi być ComboBox-em, bo ta metoda została zaprojektowana tylko dla list zakresów.
-            ConfigureComboBox(editor as ComboBox ?? throw new ArgumentException("Range editor must be a ComboBox."), width - 2);
+            ConfigureComboBox(editor as ComboBox ?? throw new ArgumentException("Range editor must be a ComboBox."), editor.Width);
             // Dock Fill powoduje, że kontrolka wypełnia swoją komórkę układu.
             editor.Dock = DockStyle.Fill;
+            editor.Margin = Padding.Empty;
             field.Controls.Add(label, 0, 0);
             field.Controls.Add(editor, 0, 1);
             return field;
@@ -269,15 +344,14 @@ namespace MPU6050Monitor
 
         // Buduje standardowe pole formularza: etykieta u góry i kontrolka wejściowa pod spodem.
         // Używane dla wyboru portu i baudrate.
-        private Control BuildField(string labelText, Control editor, int width)
+        private Control BuildField(string labelText, Control editor)
         {
             var field = new TableLayoutPanel
             {
-                Width = width,
-                Height = 74,
+                Dock = DockStyle.Fill,
                 RowCount = 2,
                 ColumnCount = 1,
-                Margin = new Padding(0, 0, 14, 0),
+                Margin = new Padding(0, 0, 10, 0),
                 BackColor = Color.White
             };
             field.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -293,32 +367,25 @@ namespace MPU6050Monitor
             };
             // Wypełnienie całej dolnej komórki pozwala zachować jednolite szerokości kontrolek.
             editor.Dock = DockStyle.Fill;
+            editor.Margin = Padding.Empty;
             field.Controls.Add(label, 0, 0);
             field.Controls.Add(editor, 0, 1);
             return field;
         }
 
-        // Buduje dolną część okna i dzieli ją na dwa obszary:
-        // lewa kolumna pokazuje odebrane ramki tekstowe,
-        // prawa kolumna pokazuje ostatnią ramkę i wykres przyspieszeń.
+        // Buduje dolną część okna: wykres z zakładkami zajmuje ją w całości.
         private Control BuildContent()
         {
-            var content = new TableLayoutPanel
+            var content = new Panel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
                 // Padding oddziela sekcję roboczą od białego paska ustawień ponad nią.
-                Padding = new Padding(24, 18, 24, 24),
+                Padding = new Padding(24, 12, 24, 24),
                 BackColor = WindowColor
             };
-            // Lewa kolumna ma stałą szerokość, żeby lista ramek nie zmieniała proporcji całego ekranu.
-            content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 390));
-            // Prawa kolumna jest elastyczna i dostaje całą resztę miejsca.
-            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            content.Controls.Add(BuildReceivePanel(), 0, 0);
-            content.Controls.Add(BuildLatestFramePanel(), 1, 0);
+            content.Controls.Add(BuildPlotPanel());
+            // Lista odebranych ramek jest wyłączona.
+            // content.Controls.Add(BuildReceivePanel());
             return content;
         }
 
@@ -401,24 +468,65 @@ namespace MPU6050Monitor
             return panel;
         }
 
-        // Buduje prawą stronę aplikacji: ostatnią zdekodowaną ramkę i obszar zakładek.
-        // Pierwsza zakładka nadal zawiera wykres akcelerometru, a dwie kolejne zostawiają
-        // gotowe miejsce pod następne widoki aplikacji.
+        // Buduje prawą połowę paska ustawień: ostatnią zdekodowaną ramkę i czas jej odbioru.
         private Control BuildLatestFramePanel()
         {
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 5,
-                BackColor = WindowColor,
-                // Większy lewy padding odsuwa prawy panel od listy ramek i poprawia czytelność.
-                Padding = new Padding(32, 12, 8, 8)
+                RowCount = 3,
+                BackColor = Color.White,
+                Padding = new Padding(12, 8, 24, 8)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+
+            var heading = new Label
+            {
+                Text = "OSTATNIA RAMKA",
+                Dock = DockStyle.Fill,
+                ForeColor = MutedColor,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
+            };
+            // Myślnik sygnalizuje brak danych tuż po uruchomieniu aplikacji.
+            _latestFrameText.Text = "—";
+            _latestFrameText.Dock = DockStyle.Fill;
+            _latestFrameText.ForeColor = InkColor;
+            _latestFrameText.Font = new Font("Consolas", 11, FontStyle.Regular);
+            // Gdy tekst jest za długi, końcówka zostanie zastąpiona wielokropkiem zamiast wyjść poza panel.
+            _latestFrameText.AutoEllipsis = true;
+            _latestFrameText.Margin = Padding.Empty;
+
+            _lastReceivedText.Text = "Brak odebranych danych";
+            _lastReceivedText.Dock = DockStyle.Fill;
+            _lastReceivedText.ForeColor = MutedColor;
+            _lastReceivedText.Font = new Font("Segoe UI", 9);
+            _lastReceivedText.TextAlign = ContentAlignment.MiddleLeft;
+            _lastReceivedText.Margin = Padding.Empty;
+
+            layout.Controls.Add(heading, 0, 0);
+            layout.Controls.Add(_latestFrameText, 0, 1);
+            layout.Controls.Add(_lastReceivedText, 0, 2);
+            return layout;
+        }
+
+        // Buduje obszar zakładek z wykresami i widokiem 3D.
+        // Pierwsza zakładka zawiera wykres akcelerometru, druga żyroskopu, trzecia orientację 3D.
+        private Control BuildPlotPanel()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                BackColor = WindowColor
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
@@ -451,31 +559,6 @@ namespace MPU6050Monitor
                 Padding = new Padding(8)
             };
 
-            var heading = new Label
-            {
-                Text = "OSTATNIA RAMKA",
-                Dock = DockStyle.Fill,
-                ForeColor = MutedColor,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Margin = Padding.Empty
-            };
-            // Myślnik sygnalizuje brak danych tuż po uruchomieniu aplikacji.
-            _latestFrameText.Text = "—";
-            _latestFrameText.Dock = DockStyle.Fill;
-            _latestFrameText.ForeColor = InkColor;
-            _latestFrameText.Font = new Font("Consolas", 11, FontStyle.Regular);
-            // Gdy tekst jest za długi, końcówka zostanie zastąpiona wielokropkiem zamiast wyjść poza panel.
-            _latestFrameText.AutoEllipsis = true;
-            _latestFrameText.Margin = Padding.Empty;
-
-            _lastReceivedText.Text = "Brak odebranych danych";
-            _lastReceivedText.Dock = DockStyle.Fill;
-            _lastReceivedText.ForeColor = MutedColor;
-            _lastReceivedText.Font = new Font("Segoe UI", 9);
-            _lastReceivedText.TextAlign = ContentAlignment.MiddleLeft;
-            _lastReceivedText.Margin = Padding.Empty;
-
             var plotHeading = new Label
             {
                 Text = "PRZEBIEG AKCELEROMETRU · OSTATNIE 3 MIN",
@@ -503,11 +586,8 @@ namespace MPU6050Monitor
             tabs.TabPages.Add(rawDataTab);
             tabs.TabPages.Add(diagnosticsTab);
 
-            layout.Controls.Add(heading, 0, 0);
-            layout.Controls.Add(_latestFrameText, 0, 1);
-            layout.Controls.Add(_lastReceivedText, 0, 2);
-            layout.Controls.Add(plotHeading, 0, 3);
-            layout.Controls.Add(tabs, 0, 4);
+            layout.Controls.Add(plotHeading, 0, 0);
+            layout.Controls.Add(tabs, 0, 1);
             return layout;
         }
 
